@@ -175,6 +175,25 @@ jobs:
             ulimit -n 16384
             exec env CC=/usr/bin/gcc CXX=/usr/bin/g++ ctest --test-dir build --output-on-failure --parallel 2
           '
+      - name: Build experimental RPM for offline inspection
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Generate only; never install or run package scriptlets on the runner.
+          mkdir -p qualification/rpm
+          cpack -G RPM --config build/CPackConfig.cmake -B qualification/rpm 2>&1 | tee qualification/rpm-build.log
+          mapfile -t packages < <(find qualification/rpm -maxdepth 1 -type f -name '*.rpm' | sort)
+          test "${#packages[@]}" -eq 1
+          package="${packages[0]}"
+          rpm -qpl "$package" > qualification/rpm-files.txt
+          rpm -qp --scripts "$package" > qualification/rpm-scriptlets.txt
+          rpm -qp --requires "$package" > qualification/rpm-requires.txt
+          rpm -qp --qf '[%{FILENAMES} %{FILEMODES:perms} %{FILEUSERNAME}:%{FILEGROUPNAME} %{FILECAPS}\\n]' "$package" > qualification/rpm-permissions.txt
+          for required in /usr/bin/vibepollo /usr/libexec/vibeshine/vibepollo-host /usr/libexec/vibeshine/vibepollo-session-broker /usr/lib/systemd/system/vibepollo.service /usr/lib/systemd/system/vibepollo-session-controller.service; do
+            grep -Fx "$required" qualification/rpm-files.txt
+          done
+          sha256sum "$package" > qualification/rpm-sha256.txt
+          echo 'Experimental inspection artifact. rpm-ostree lifecycle adaptation, signed module delivery, and on-host streaming validation remain unfinished. This is not an installation release.' > qualification/STATUS.txt
       - name: Upload qualification logs
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
