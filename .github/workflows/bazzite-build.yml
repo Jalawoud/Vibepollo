@@ -62,7 +62,8 @@ jobs:
           dnf install -y nodejs npm jq sqlite-devel libcap libcap-devel
           kwin-devel qt6-qtbase-devel libkscreen-devel wayland-devel
           wayland-protocols-devel libxkbcommon-devel libuuid-devel
-          python3-pytest python3-jinja2
+          python3-pytest python3-jinja2 openssl dbus-daemon bsdtar
+          libwebp-devel libpng-devel systemd-devel libubsan
       - name: Install compiler bootstrap dependencies
         run: >-
           dnf install -y gcc gcc-c++ make gmp-devel mpfr-devel libmpc-devel
@@ -145,7 +146,15 @@ jobs:
           bash scripts/linux_build.sh -s --step=build 2>&1 | tee qualification/build.log
       - name: Run CTest
         shell: bash
-        run: ctest --test-dir build --output-on-failure --parallel 2
+        run: |
+          set -euo pipefail
+          # Permission tests must run without root's DAC override. Use Fedora's
+          # native compiler for test-time helper/sanitizer probes; the host
+          # and CUDA artifacts above remain built with pinned GCC 14.
+          useradd --create-home bazzite-tester
+          chown -R bazzite-tester:bazzite-tester "$GITHUB_WORKSPACE"
+          runuser -u bazzite-tester -- env CC=/usr/bin/gcc CXX=/usr/bin/g++ \
+            ctest --test-dir build --output-on-failure --parallel 2
       - name: Upload qualification logs
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
