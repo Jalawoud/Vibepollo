@@ -1,0 +1,87 @@
+name: Bazzite Fedora 44 build qualification
+on:
+  push:
+    branches: [bazzite-port]
+    paths:
+      - '.github/workflows/bazzite-build.yml'
+      - 'packaging/linux/bazzite/**'
+      - 'tests/unit/test_bazzite_kernel_check.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: bazzite-build-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  compile:
+    # Artifact-only qualification: no installation, signing, keys or publishing.
+    if: github.repository == 'Jalawoud/Vibepollo'
+    runs-on: ubuntu-latest
+    container: fedora:44
+    timeout-minutes: 120
+    env:
+      BUILD_JOBS: '2'
+      CMAKE_BUILD_PARALLEL_LEVEL: '2'
+      SUNSHINE_COMPILE_DOXYGEN: 'false'
+    steps:
+      - name: Install checkout tools
+        run: dnf install -y git tar gzip ca-certificates
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          submodules: false
+          persist-credentials: false
+      - name: Initialize build submodules
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Exclude Windows WebRTC/depot_tools and documentation-only trees.
+          git submodule update --init --depth 1 -- \
+            third-party/build-deps third-party/glad third-party/googletest \
+            third-party/inputtino third-party/libdisplaydevice \
+            third-party/nanors third-party/nv-codec-headers \
+            third-party/plasma-wayland-protocols third-party/Simple-Web-Server \
+            third-party/TPCircularBuffer third-party/wayland-protocols \
+            third-party/wlr-protocols third-party/moonlight-common-c \
+            third-party/tray third-party/libvirtualdisplay third-party/libvirtualgamepad
+          git submodule foreach --recursive 'git submodule update --init --depth 1'
+      - name: Install additional native build tools
+        run: >-
+          dnf install -y nodejs npm jq sqlite-devel libcap libcap-devel
+          kwin-devel qt6-qtbase-devel kf6-kscreen-devel wayland-devel
+          wayland-protocols-devel libxkbcommon-devel libuuid-devel
+          python3-pytest python3-jinja2
+      - name: Install Fedora build dependencies and CUDA toolkit
+        shell: bash
+        run: bash scripts/linux_build.sh -s --cuda-patches --step deps
+      - name: Record toolchain and run kernel-check harness tests
+        shell: bash
+        run: |
+          mkdir -p qualification
+          rpm -qa | sort > qualification/fedora-packages.txt
+          git rev-parse HEAD > qualification/source-commit.txt
+          git submodule status --recursive > qualification/submodules.txt
+          python3 tests/unit/test_bazzite_kernel_check.py
+      - name: Configure native host and KWin bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/linux_build.sh -s --cuda-patches --step cmake 2>&1 | tee qualification/configure.log
+      - name: Compile host and tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/linux_build.sh -s --step build 2>&1 | tee qualification/build.log
+      - name: Run CTest
+        shell: bash
+        run: ctest --test-dir build --output-on-failure --parallel 2
+      - name: Upload qualification logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: bazzite-fedora44-qualification
+          path: |
+            qualification/
+            build/CMakeFiles/CMakeConfigureLog.yaml
+            build/Testing/Temporary/LastTest.log
+          if-no-files-found: warn
+          retention-days: 7
