@@ -96,8 +96,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$("$GITHUB_WORKSPACE/.gcc14/bin/gcc-14" -dumpversion)" = 14
-          test "$("$GITHUB_WORKSPACE/.gcc14/bin/g++-14" -dumpversion)" = 14
+          for compiler in gcc-14 g++-14; do
+            version=$("$GITHUB_WORKSPACE/.gcc14/bin/$compiler" -dumpfullversion -dumpversion)
+            echo "$compiler version: $version"
+            case "$version" in
+              14|14.[0-9]*) ;;
+              *) echo "Expected GCC 14, got $version" >&2; exit 1 ;;
+            esac
+          done
+          printf 'int main() { return 0; }\\n' > "$RUNNER_TEMP/compiler-probe.cpp"
+          "$GITHUB_WORKSPACE/.gcc14/bin/g++-14" -std=c++23 \
+            "$RUNNER_TEMP/compiler-probe.cpp" -o "$RUNNER_TEMP/compiler-probe"
+          "$RUNNER_TEMP/compiler-probe"
           echo "$GITHUB_WORKSPACE/.gcc14/bin" >> "$GITHUB_PATH"
       - name: Cache verified compiler
         if: steps.gcc-cache.outputs.cache-hit != 'true'
