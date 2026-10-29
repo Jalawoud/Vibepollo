@@ -134,11 +134,12 @@ jobs:
           git rev-parse HEAD > qualification/source-commit.txt
           git submodule status --recursive > qualification/submodules.txt
           python3 tests/unit/test_bazzite_kernel_check.py
+          python3 tests/unit/test_bazzite_package_profile.py
       - name: Configure native host and KWin bridge
         shell: bash
         run: |
           set -euo pipefail
-          bash scripts/linux_build.sh -s --cuda-patches --step=cmake 2>&1 | tee qualification/configure.log
+          bash scripts/linux_build.sh -s --cuda-patches --bazzite --step=cmake 2>&1 | tee qualification/configure.log
       - name: Compile host and tests
         shell: bash
         run: |
@@ -187,7 +188,9 @@ jobs:
           package="${packages[0]}"
           rpm -qpl "$package" > qualification/rpm-files.txt
           rpm -qp --scripts "$package" > qualification/rpm-scriptlets.txt
+          test ! -s qualification/rpm-scriptlets.txt
           rpm -qp --requires "$package" > qualification/rpm-requires.txt
+          grep -Fx vibepollo-kmod qualification/rpm-requires.txt
           rpm -qp --dump "$package" > qualification/rpm-permissions.txt
           rpm -qp --filecaps "$package" > qualification/rpm-capabilities.txt
           for required in /usr/bin/vibepollo /usr/libexec/vibeshine/vibepollo-host /usr/libexec/vibeshine/vibepollo-session-broker /usr/lib/systemd/system/vibepollo.service /usr/lib/systemd/system/vibepollo-session-controller.service; do
@@ -201,8 +204,17 @@ jobs:
         with:
           name: bazzite-fedora44-qualification
           path: |
-            qualification/
+            qualification/*.txt
+            qualification/*.log
+            qualification/*.json
             build/CMakeFiles/CMakeConfigureLog.yaml
             build/Testing/Temporary/LastTest.log
           if-no-files-found: warn
+          retention-days: 7
+      - name: Upload experimental RPM separately
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: bazzite-experimental-rpm
+          path: qualification/rpm/*.rpm
+          if-no-files-found: error
           retention-days: 7
