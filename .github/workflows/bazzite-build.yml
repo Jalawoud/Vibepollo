@@ -63,7 +63,7 @@ jobs:
           kwin-devel qt6-qtbase-devel libkscreen-devel wayland-devel
           wayland-protocols-devel libxkbcommon-devel libuuid-devel
           python3-pytest python3-jinja2 openssl dbus-daemon bsdtar
-          libwebp-devel libpng-devel systemd-devel libubsan
+          libwebp-devel libpng-devel libjpeg-turbo-devel systemd-devel libubsan
       - name: Install compiler bootstrap dependencies
         run: >-
           dnf install -y gcc gcc-c++ make gmp-devel mpfr-devel libmpc-devel
@@ -144,6 +144,21 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/linux_build.sh -s --step=build 2>&1 | tee qualification/build.log
+      - name: Expose system UBSan runtime to pinned test compiler
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The pinned compiler has no bundled sanitizer; keep tests enabled
+          # using the system runtime through a job-local linker directory.
+          runtime=$(gcc -print-file-name=libubsan.so.1)
+          test -f "$runtime"
+          mkdir -p qualification/test-libs
+          ln -s "$(realpath "$runtime")" qualification/test-libs/libubsan.so
+          export LIBRARY_PATH="$GITHUB_WORKSPACE/qualification/test-libs"
+          echo "LIBRARY_PATH=$LIBRARY_PATH" >> "$GITHUB_ENV"
+          echo 'int main() { return 0; }' > "$RUNNER_TEMP/ubsan-probe.cpp"
+          "$GITHUB_WORKSPACE/.gcc14/bin/g++-14" -fsanitize=undefined "$RUNNER_TEMP/ubsan-probe.cpp" -o "$RUNNER_TEMP/ubsan-probe"
+          "$RUNNER_TEMP/ubsan-probe"
       - name: Run CTest
         shell: bash
         run: |
@@ -153,8 +168,13 @@ jobs:
           # and CUDA artifacts above remain built with pinned GCC 14.
           useradd --create-home bazzite-tester
           chown -R bazzite-tester:bazzite-tester "$GITHUB_WORKSPACE"
-          runuser -u bazzite-tester -- env CC=/usr/bin/gcc CXX=/usr/bin/g++ \
-            ctest --test-dir build --output-on-failure --parallel 2
+          runuser -u bazzite-tester -- bash -c '
+            set -euo pipefail
+            # runuser resets the soft limit; the TLS stress test retains
+            # thousands of live sockets by design.
+            ulimit -n 16384
+            exec env CC=/usr/bin/gcc CXX=/usr/bin/g++ ctest --test-dir build --output-on-failure --parallel 2
+          '
       - name: Upload qualification logs
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
