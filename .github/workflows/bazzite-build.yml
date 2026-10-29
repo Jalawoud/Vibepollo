@@ -5,6 +5,10 @@ on:
     paths:
       - '.github/workflows/bazzite-build.yml'
       - 'packaging/linux/bazzite/**'
+      - 'scripts/linux_build.sh'
+      - 'cmake/**'
+      - 'src/**'
+      - 'third-party/**'
       - 'tests/unit/test_bazzite_kernel_check.py'
   workflow_dispatch:
 permissions:
@@ -56,7 +60,9 @@ jobs:
           python3-pytest python3-jinja2
       - name: Install Fedora build dependencies and CUDA toolkit
         shell: bash
-        run: bash scripts/linux_build.sh -s --cuda-patches --step=deps
+        run: |
+          set -euo pipefail
+          bash scripts/linux_build.sh -s --cuda-patches --step=deps 2>&1 | tee qualification/dependencies.log
       - name: Record toolchain and run kernel-check harness tests
         shell: bash
         run: |
