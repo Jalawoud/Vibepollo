@@ -25,6 +25,11 @@ jobs:
     timeout-minutes: 180
     env:
       BUILD_JOBS: '2'
+      BUILD_VERSION: 2.0.2-bazzite.${{ github.run_number }}
+      BRANCH: ${{ github.ref_name }}
+      COMMIT: ${{ github.sha }}
+      SUNSHINE_REPO_OWNER: Jalawoud
+      SUNSHINE_REPO_NAME: Vibepollo
       CMAKE_BUILD_PARALLEL_LEVEL: '2'
       SUNSHINE_COMPILE_DOXYGEN: 'false'
     steps:
