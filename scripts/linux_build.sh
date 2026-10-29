@@ -585,9 +585,11 @@ function run_step_deps() {
   # Install the dependencies
   $package_install_command "${dependencies[@]}"
 
-  # reload the environment
-  # shellcheck source=/dev/null
-  source ~/.bashrc
+  # Minimal CI containers need not have a user shell startup file.
+  if [[ -f "$HOME/.bashrc" ]]; then
+    # shellcheck source=/dev/null
+    source "$HOME/.bashrc"
+  fi
 
   #set gcc version based on distros
   export CC=gcc-${gcc_version}
