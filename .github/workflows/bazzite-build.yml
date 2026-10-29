@@ -67,7 +67,7 @@ jobs:
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: ${{ github.workspace }}/.gcc14
-          key: bazzite-f44-gcc14-c9cd41fba9ebd288c4f101e4b99da934bcb96a11-v1
+          key: bazzite-f44-gcc14-c9cd41fba9ebd288c4f101e4b99da934bcb96a11-cxx17-v2
       - name: Build pinned GCC 14 for CUDA
         if: steps.gcc-cache.outputs.cache-hit != 'true'
         shell: bash
@@ -83,7 +83,9 @@ jobs:
           test "$(git -C "$compiler_source" rev-parse HEAD)" = "$compiler_commit"
           mkdir -p "$compiler_build"
           cd "$compiler_build"
-          "$compiler_source/configure" --prefix="$GITHUB_WORKSPACE/.gcc14" \
+          # Keep GCC 14 host-build code on its expected string-literal semantics.
+          # Set the compiler command so nested configure scripts inherit the mode.
+          CXX="g++ -std=gnu++17" "$compiler_source/configure" --prefix="$GITHUB_WORKSPACE/.gcc14" \
             --enable-languages=c,c++ --disable-multilib --disable-bootstrap \
             --disable-libsanitizer --with-system-zlib --without-isl
           make -j2
@@ -102,7 +104,7 @@ jobs:
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: ${{ github.workspace }}/.gcc14
-          key: bazzite-f44-gcc14-c9cd41fba9ebd288c4f101e4b99da934bcb96a11-v1
+          key: bazzite-f44-gcc14-c9cd41fba9ebd288c4f101e4b99da934bcb96a11-cxx17-v2
       - name: Install Fedora build dependencies and CUDA toolkit
         shell: bash
         run: |
