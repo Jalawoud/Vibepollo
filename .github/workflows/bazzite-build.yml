@@ -34,6 +34,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Checkout uses a temporary HOME; native container steps need their own
+          # exact-path trust entry. Never trust arbitrary repositories with "*".
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          mkdir -p qualification
           # Exclude Windows WebRTC/depot_tools and documentation-only trees.
           git submodule update --init --depth 1 -- \
             third-party/build-deps third-party/glad third-party/googletest \
