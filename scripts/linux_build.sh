@@ -412,8 +412,6 @@ function add_fedora_deps() {
     "cmake"
     "desktop-file-utils"
     "${DOXYGEN}"
-    "gcc${gcc_version}"
-    "gcc${gcc_version}-c++"
     "git"
     "graphviz"
     "libappindicator-gtk3-devel"
@@ -448,6 +446,13 @@ function add_fedora_deps() {
     "wget"  # necessary for cuda install with `run` file
     "which"  # necessary for cuda install with `run` file
   )
+
+  # Container qualification may supply a pinned toolchain outside the distro
+  # repositories. Keep versioned RPM dependencies for normal native builds.
+  if ! command -v "gcc-${gcc_version}" >/dev/null 2>&1 ||
+     ! command -v "g++-${gcc_version}" >/dev/null 2>&1; then
+    dependencies+=("gcc${gcc_version}" "gcc${gcc_version}-c++")
+  fi
 
   if [[ "$skip_libva" == 0 ]]; then
     dependencies+=(
