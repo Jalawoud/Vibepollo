@@ -104,7 +104,7 @@ jobs:
               *) echo "Expected GCC 14, got $version" >&2; exit 1 ;;
             esac
           done
-          printf 'int main() { return 0; }\\n' > "$RUNNER_TEMP/compiler-probe.cpp"
+          echo 'int main() { return 0; }' > "$RUNNER_TEMP/compiler-probe.cpp"
           "$GITHUB_WORKSPACE/.gcc14/bin/g++-14" -std=c++23 \
             "$RUNNER_TEMP/compiler-probe.cpp" -o "$RUNNER_TEMP/compiler-probe"
           "$RUNNER_TEMP/compiler-probe"
