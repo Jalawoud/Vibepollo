@@ -51,7 +51,7 @@ jobs:
       - name: Install additional native build tools
         run: >-
           dnf install -y nodejs npm jq sqlite-devel libcap libcap-devel
-          kwin-devel qt6-qtbase-devel kf6-kscreen-devel wayland-devel
+          kwin-devel qt6-qtbase-devel libkscreen-devel wayland-devel
           wayland-protocols-devel libxkbcommon-devel libuuid-devel
           python3-pytest python3-jinja2
       - name: Install Fedora build dependencies and CUDA toolkit
