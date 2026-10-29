@@ -570,7 +570,11 @@ function run_step_deps() {
     add_ubuntu_deps
   elif [[ "$distro" == "fedora" ]]; then
     add_fedora_deps
-    ${sudo_cmd} dnf group install "development-tools" -y
+    # A full development-tools group pulls in unrelated services (e.g.
+    # Subversion's systemd dependency), conflicting with Fedora's minimal
+    # container image. Install the build tools explicitly; versioned CUDA
+    # compilers and native libraries are in add_fedora_deps above.
+    ${sudo_cmd} dnf install -y make patch pkgconf-pkg-config gcc gcc-c++ binutils tar gzip xz
   fi
 
   # Install the dependencies
